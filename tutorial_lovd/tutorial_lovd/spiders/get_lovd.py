@@ -5,16 +5,55 @@ from scrapy.spiders import CrawlSpider,Rule
 from scrapy.linkextractors import LinkExtractor
 from scrapy.utils.url import urljoin_rfc
 from scrapy.utils.response import get_base_url
+from w3lib import html
 from tutorial_lovd.items import LovdItem
 from scrapy.http import Request
 from lxml import etree
 
-def parse_next_url(url):
-    response = urllib2.urlopen(url)
+def parse_next_url(pageURL):
+    response = urllib2.urlopen(pageURL)
     result = response.read()
     tree = etree.HTML(result)
-    nodes = tree.xpath('//table/tr/td/table[@class="data"]')
-    raw_input(nodes)
+    #nodes = tree.xpath('//table/tr/td/table[@class="data"]')
+    tables = tree.xpath('//table/tr/td/table[@class="data"]')
+    print len(tables)
+    itemDict = {}
+    for j in range(len(tables)):
+        #titles = tables[j].xpath('.//tr/th/text()').extract()
+        titles = tables[j].xpath('.//tr/th/text()')
+        print titles
+        values = tables[j].xpath('.//tr/td')
+        if titles and values:
+            print len(titles),len(values)
+            #raw_input()
+            for i in range(1,len(titles)):
+                finalTitle = titles[i].replace(u'\xa0',' ').encode('utf8').strip()
+                value = values[i].xpath('.//text()')[0].encode('utf8').strip()
+                if finalTitle == 'Associated with diseases' and value == '-':
+                    #return None
+                    pass
+            for i in range(1,len(titles)):
+                valueList = []
+                if values[i].xpath('.//a/text()'):
+                    value = values[i].xpath('.//a/text()')
+                    url = values[i].xpath('.//a/@href')
+                    print url
+                    for l in range(len(value)):
+                        finalValue = value[l].encode('utf8').strip()
+                        finalUrl = url[l].encode('utf8').strip()
+                        if 'http' not in finalUrl:
+                            finalUrl = urljoin_rfc(html.get_base_url(result, baseurl=''),finalUrl)
+                        valueList.append((finalValue,finalUrl))
+                else:
+                    value = values[i-1].xpath('.//text()')
+                    for l in range(len(value)):
+                        finalValue = value[l].encode('utf8').strip()
+                        valueList.append((finalValue,''))
+                finalTitle = titles[i].replace(u'\xa0',' ').encode('utf8').strip()
+                #print finalTitle,":", valueList
+                itemDict[finalTitle] = valueList
+    #print itemDict
+    raw_input(itemDict)
 parse_next_url('http://databases.lovd.nl/shared/diseases/02143')
 
 class MySpider(CrawlSpider):
